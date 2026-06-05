@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎲 人生ゲーム</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  min-height:100vh;
+  background:linear-gradient(135deg,#0f0a2e 0%,#1a0a3d 50%,#0d1b3e 100%);
+  font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;
+  color:white;
+}
+#app{max-width:480px;margin:0 auto;padding:24px 16px 60px;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pop{0%{transform:scale(.8);opacity:0}80%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+h1{font-size:32px;font-weight:bold;text-align:center;margin:8px 0 4px;background:linear-gradient(90deg,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+h2{color:#a78bfa;font-size:22px;margin:0 0 18px;}
+
+input,select{width:100%;padding:12px 14px;border-radius:12px;border:1px solid #334155;background:rgba(255,255,255,.06);color:white;font-size:16px;outline:none;margin-bottom:10px;}
+input::placeholder{color:#64748b;}
+select option{background:#1e1b4b;}
+
+.btn{display:block;width:100%;padding:13px;border-radius:12px;border:none;cursor:pointer;font-weight:bold;font-size:15px;margin-bottom:10px;transition:filter .15s;}
+.btn:hover{filter:brightness(1.15);}
+.btn:disabled{background:#1e293b!important;color:#475569!important;cursor:not-allowed;}
+.btn-primary{background:#7c3aed;color:white;}
+.btn-secondary{background:rgba(255,255,255,.06);color:#a78bfa;border:1px solid #7c3aed;}
+.btn-danger{background:#dc2626;color:white;}
+.btn-yellow{background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#000;}
+.back-btn{background:none;border:none;color:#7c3aed;cursor:pointer;font-size:14px;margin-bottom:16px;padding:0;display:block;}
+
+.stats-row{display:flex;gap:12px;margin-bottom:18px;}
+.stat-card{flex:1;background:rgba(124,58,237,.15);border:1px solid #3730a3;border-radius:14px;padding:14px 8px;text-align:center;}
+.stat-num{display:block;color:#a78bfa;font-size:26px;font-weight:bold;}
+.stat-label{display:block;color:#64748b;font-size:12px;}
+
+.money-big{font-size:28px;font-weight:bold;color:#fbbf24;background:rgba(251,191,36,.1);border:2px solid rgba(251,191,36,.25);border-radius:14px;padding:12px 20px;display:inline-block;margin:8px 0;}
+
+.rank-item{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.03);border:1px solid #1e293b;border-radius:14px;padding:12px 14px;margin-bottom:8px;}
+.rank-badge{width:36px;height:36px;border-radius:50%;background:#334155;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;color:#94a3b8;flex-shrink:0;}
+
+.sq-box{border-radius:16px;padding:18px;text-align:center;margin-bottom:18px;}
+.sq-plus{background:rgba(74,222,128,.12);border:2px solid #4ade80;}
+.sq-minus{background:rgba(248,113,113,.12);border:2px solid #f87171;}
+.sq-job{background:rgba(251,191,36,.12);border:2px solid #fbbf24;}
+.sq-salary{background:rgba(96,165,250,.12);border:2px solid #60a5fa;}
+.sq-roulette{background:rgba(192,132,252,.12);border:2px solid #c084fc;}
+.sq-goal{background:rgba(251,191,36,.2);border:2px solid #fbbf24;}
+
+.user-list{display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;margin-bottom:14px;}
+.user-chip{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:12px;cursor:pointer;background:rgba(255,255,255,.05);border:1px solid #334155;transition:all .15s;}
+.user-chip.selected{background:#7c3aed;border-color:#a78bfa;transform:scale(1.02);}
+
+.tab-bar{display:flex;gap:8px;margin-bottom:18px;}
+.tab-btn{flex:1;padding:8px 0;border-radius:10px;border:none;cursor:pointer;background:rgba(255,255,255,.05);color:#94a3b8;font-weight:bold;font-size:11px;}
+.tab-btn.active{background:#7c3aed;color:white;}
+
+.list-item{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid #1e293b;border-radius:12px;padding:11px 13px;margin-bottom:8px;}
+.icon-btn{background:rgba(255,255,255,.06);border:none;cursor:pointer;padding:6px 10px;border-radius:8px;font-size:14px;}
+.qr-item{display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.04);border:1px solid #1e293b;border-radius:14px;padding:14px;margin-bottom:12px;}
+.add-box{background:rgba(124,58,237,.1);border:1px dashed #7c3aed;border-radius:14px;padding:14px;margin-top:14px;}
+.add-box-title{color:#a78bfa;font-weight:bold;margin-bottom:10px;}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:bold;background:rgba(251,191,36,.15);border:1px solid #fbbf24;color:#fbbf24;margin-left:6px;}
+.err{color:#f87171;font-size:13px;margin-bottom:8px;}
+.hint{color:#64748b;font-size:12px;text-align:center;margin-top:10px;}
+
+#loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;}
+.spinner{width:40px;height:40px;border:3px solid #1e293b;border-top:3px solid #7c3aed;border-radius:50%;animation:spin 1s linear infinite;}
+</style>
+</head>
+<body>
+<div id="loading">
+  <div class="spinner"></div>
+  <p style="color:#a78bfa;margin-top:14px;">読み込み中…</p>
+</div>
+<div id="app" style="display:none;"></div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDVnfZLVMRKLr3frcvQ5AKNXNmqlcMapS8",
+  authDomain: "life-game-a7a6c.firebaseapp.com",
+  databaseURL: "https://life-game-a7a6c-default-rtdb.firebaseio.com",
+  projectId: "life-game-a7a6c",
+  storageBucket: "life-game-a7a6c.firebasestorage.app",
+  messagingSenderId: "415410809237",
+  appId: "1:415410809237:web:fb6f83471fa5d2e9bb2e9c"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const INIT_MONEY = 300000;
+const ADMIN_PASS = "1234"; // ← 管理者パスワード（変更可）
+let users = {}, squares = {}, jobs = {};
+let adminTab = "squares";
+let selectedUserId = null;
+let rankingListener = null;
+
+function fmt(n){ return (n<0?"-¥":"¥")+Math.abs(n).toLocaleString(); }
+function qrUrl(text,size=180){ return "https://api.qrserver.com/v1/create-qr-code/?size="+size+"x"+size+"&data="+encodeURIComponent(text); }
+function baseUrl(){ return location.href.split("?")[0].split("#")[0]; }
+function getParam(key){ return new URLSearchParams(location.search).get(key); }
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function render(html){ document.getElementById("app").innerHTML=html; }
+function stopRanking(){ if(rankingListener){db.ref("users").off("value",rankingListener);rankingListener=null;} }
+
+async function loadAll(){
+  const [us,sq,jo] = await Promise.all([
+    db.ref("users").once("value"),
+    db.ref("squares").once("value"),
+    db.ref("jobs").once("value"),
+  ]);
+  users=us.val()||{}; squares=sq.val()||{}; jobs=jo.val()||{};
+}
+
+// ══════════════════════════════════════
+// HOME
+// ══════════════════════════════════════
+function showHome(){
+  stopRanking();
+  render(`
+    <div style="animation:fadeUp .4s ease both;text-align:center;">
+      <div style="font-size:72px;margin-bottom:6px;">🎲</div>
+      <h1>人生ゲーム</h1>
+      <p style="color:#64748b;margin-bottom:28px;font-size:14px;">デジタル管理システム</p>
+      <div class="stats-row">
+        <div class="stat-card"><span class="stat-num">${Object.keys(users).length}</span><span class="stat-label">プレイヤー</span></div>
+        <div class="stat-card"><span class="stat-num">${Object.keys(squares).length}</span><span class="stat-label">マス数</span></div>
+      </div>
+      <button class="btn btn-primary" style="font-size:18px;padding:16px;" onclick="showRanking()">🏆 ランキングを見る</button>
+      <button class="btn btn-secondary" onclick="showAdminLogin()">⚙️ 管理画面</button>
+    </div>
+  `);
+}
+
+// ══════════════════════════════════════
+// ADMIN LOGIN
+// ══════════════════════════════════════
+function showAdminLogin(){
+  stopRanking();
+  render(`
+    <div style="animation:fadeUp .4s ease both;">
+      <button class="back-btn" onclick="showHome()">← 戻る</button>
+      <h2>🔒 管理者ログイン</h2>
+      <p style="color:#94a3b8;margin-bottom:18px;">パスワードを入力してください</p>
+      <input id="admin-pass" type="password" placeholder="パスワード">
+      <p id="pass-err" class="err" style="display:none;">⚠ パスワードが違います</p>
+      <button class="btn btn-primary" onclick="checkAdminPass()">ログイン</button>
+    </div>
+  `);
+  setTimeout(()=>document.getElementById("admin-pass")?.focus(),100);
+}
+
+function checkAdminPass(){
+  const val = document.getElementById("admin-pass").value;
+  if(val === ADMIN_PASS){
+    showAdmin();
+  } else {
+    const e = document.getElementById("pass-err");
+    e.style.display="block";
+  }
+}
+
+// ══════════════════════════════════════
+// REGISTER
+// ══════════════════════════════════════
+function showRegister(){
+  stopRanking();
+  render(`
+    <div style="animation:fadeUp .4s ease both;">
+      <h2 style="text-align:center;margin-bottom:6px;">👤 プレイヤー登録</h2>
+      <p style="color:#94a3b8;margin-bottom:24px;text-align:center;">ユーザー名を入力してゲームを始めよう！</p>
+      <input id="reg-name" placeholder="ユーザー名を入力…" maxlength="20">
+      <p id="reg-err" class="err" style="display:none;"></p>
+      <button class="btn btn-primary" onclick="doRegister()">✅ 登録する</button>
+      <p class="hint">初期資金：${fmt(INIT_MONEY)}</p>
+    </div>
+  `);
+  setTimeout(()=>document.getElementById("reg-name")?.focus(),100);
+}
+
+async function doRegister(){
+  const name=document.getElementById("reg-name").value.trim();
+  if(!name) return;
+  const snap=await db.ref("users").once("value");
+  const cur=snap.val()||{};
+  if(Object.values(cur).some(u=>u.name===name)){
+    const e=document.getElementById("reg-err");
+    e.textContent="⚠ そのユーザー名は既に使われています";
+    e.style.display="block"; return;
+  }
+  const id="u_"+Date.now();
+  const user={id,name,money:INIT_MONEY,totalEarned:0,job:null,createdAt:Date.now()};
+  await db.ref("users/"+id).set(user);
+  users[id]=user;
+  render(`
+    <div style="animation:pop .4s ease both;text-align:center;">
+      <div style="font-size:64px;">🎉</div>
+      <h2 style="text-align:center;margin-top:10px;">登録完了！</h2>
+      <p style="color:#e2e8f0;margin-bottom:10px;">ようこそ、<strong style="color:#fbbf24;">${esc(name)}</strong> さん！</p>
+      <div class="money-big">${fmt(INIT_MONEY)}</div>
+      <p style="color:#94a3b8;font-size:13px;margin-top:6px;">初期資金でゲームスタート！</p>
+      <button class="btn btn-primary" style="margin-top:20px;" onclick="showHome()">🏠 ホームへ</button>
+    </div>
+  `);
+}
+
+// ══════════════════════════════════════
+// SQUARE
+// ══════════════════════════════════════
+function showSquare(squareId){
+  stopRanking();
+  const sq=squares[squareId];
+  if(!sq){
+    render(`<div style="text-align:center;padding:40px;"><p style="color:#f87171;font-size:18px;">❌ マスが見つかりません</p><button class="btn btn-primary" style="margin-top:16px;width:auto;padding:10px 24px;" onclick="showHome()">ホームへ</button></div>`);
+    return;
+  }
+  const boxClass={plus:"sq-plus",minus:"sq-minus",job:"sq-job",salary:"sq-salary",roulette:"sq-roulette",goal:"sq-goal"}[sq.type]||"sq-plus";
+  let amountHtml="";
+  if(sq.type==="plus")    amountHtml=`<div style="font-size:26px;font-weight:bold;color:#4ade80;margin-top:6px;">+${fmt(sq.amount)}</div>`;
+  if(sq.type==="minus")   amountHtml=`<div style="font-size:26px;font-weight:bold;color:#f87171;margin-top:6px;">-${fmt(sq.amount)}</div>`;
+  if(sq.type==="salary")  amountHtml=`<div style="font-size:14px;color:#60a5fa;margin-top:6px;">役職に応じた給料を受け取る</div>`;
+  if(sq.type==="job")     amountHtml=`<div style="font-size:14px;color:#fbbf24;margin-top:6px;">ランダムで役職が決まる！</div>`;
+  if(sq.type==="roulette")amountHtml=`<div style="font-size:14px;color:#c084fc;margin-top:6px;">±${fmt(sq.amount)} のルーレット！</div>`;
+  if(sq.type==="goal")    amountHtml=`<div style="font-size:14px;color:#fbbf24;margin-top:6px;">所持金リセット・累計に加算！</div>`;
+
+  const userItems=Object.values(users).sort((a,b)=>a.name.localeCompare(b.name)).map(u=>`
+    <div class="user-chip" id="chip-${u.id}" onclick="selectUser('${u.id}')">
+      <div>
+        <div style="font-weight:bold;color:white;">${esc(u.name)}${u.job?`<span class="badge">💼 ${esc(u.job)}</span>`:""}</div>
+      </div>
+      <div style="font-size:12px;color:#a78bfa;text-align:right;">
+        <div>${fmt(u.money)}</div>
+        <div style="color:#64748b;">累計 ${fmt(u.totalEarned||0)}</div>
+      </div>
+    </div>
+  `).join("");
+
+  render(`
+    <div style="animation:fadeUp .4s ease both;">
+      <button class="back-btn" onclick="showHome()">← 戻る</button>
+      <div class="sq-box ${boxClass}">
+        <h2 style="text-align:center;margin:0;">${esc(sq.label)}</h2>
+        ${amountHtml}
+      </div>
+      <p style="color:#a78bfa;font-weight:bold;margin-bottom:8px;">プレイヤーを選択</p>
+      <div class="user-list">${userItems||"<p style='color:#64748b;text-align:center;'>プレイヤーがいません</p>"}</div>
+      <button class="btn btn-primary" id="apply-btn" disabled onclick="applySquare('${squareId}')">✅ 適用する</button>
+    </div>
+  `);
+  selectedUserId=null;
+}
+
+function selectUser(uid){
+  document.querySelectorAll(".user-chip").forEach(el=>el.classList.remove("selected"));
+  document.getElementById("chip-"+uid)?.classList.add("selected");
+  document.getElementById("apply-btn").disabled=false;
+  selectedUserId=uid;
+}
+
+async function applySquare(squareId){
+  const uid=selectedUserId; const sq=squares[squareId];
+  if(!uid||!sq) return;
+  const snap=await db.ref("users/"+uid).once("value");
+  const user=snap.val(); if(!user) return;
+
+  let delta=0, jobAssigned=null, rouletteResult=null;
+
+  if(sq.type==="plus"){
+    delta=sq.amount;
+  } else if(sq.type==="minus"){
+    delta=-sq.amount;
+  } else if(sq.type==="salary"){
+    const j=Object.values(jobs).find(j=>j.name===user.job);
+    delta=j?j.salary:30000;
+  } else if(sq.type==="job"){
+    const jList=Object.values(jobs);
+    if(jList.length===0){alert("役職が登録されていません。管理画面から追加してください。");return;}
+    jobAssigned=jList[Math.floor(Math.random()*jList.length)].name;
+    delta=0;
+  } else if(sq.type==="roulette"){
+    const plus=Math.random()>=0.5;
+    delta=plus?sq.amount:-sq.amount;
+    rouletteResult=plus;
+  } else if(sq.type==="goal"){
+    const goalMoney=user.money;
+    const newTotal=(user.totalEarned||0)+goalMoney;
+    await db.ref("users/"+uid).update({money:INIT_MONEY,totalEarned:newTotal});
+    users[uid]={...user,money:INIT_MONEY,totalEarned:newTotal};
+    render(`
+      <div style="animation:pop .4s ease both;text-align:center;">
+        <div style="font-size:64px;">🏁</div>
+        <h2 style="text-align:center;color:#fbbf24;margin-top:10px;">ゴール！</h2>
+        <p style="color:#e2e8f0;margin-bottom:8px;">${esc(user.name)} さん</p>
+        <div style="color:#fbbf24;font-size:22px;font-weight:bold;margin:10px 0;">${fmt(goalMoney)} を累計に加算！</div>
+        <div style="color:#94a3b8;font-size:14px;margin-bottom:4px;">累計獲得額：<strong style="color:#fbbf24;">${fmt(newTotal)}</strong></div>
+        <div style="color:#60a5fa;font-size:14px;">所持金は ${fmt(INIT_MONEY)} にリセット</div>
+        <div style="display:flex;gap:8px;margin-top:20px;">
+          <button class="btn btn-primary" onclick="showRanking()">🏆 ランキング</button>
+          <button class="btn btn-secondary" onclick="showHome()">🏠 ホーム</button>
+        </div>
+      </div>
+    `); return;
+  }
+
+  const before=user.money;
+  const newMoney=user.money+delta;
+  const newTotal=(user.totalEarned||0)+(delta>0?delta:0);
+  const updates={money:newMoney,totalEarned:newTotal};
+  if(jobAssigned) updates.job=jobAssigned;
+  await db.ref("users/"+uid).update(updates);
+  users[uid]={...user,...updates};
+
+  if(sq.type==="job"){
+    const j=Object.values(jobs).find(j=>j.name===jobAssigned);
+    render(`
+      <div style="animation:pop .4s ease both;text-align:center;">
+        <div style="font-size:64px;">🎊</div>
+        <h2 style="text-align:center;color:#fbbf24;margin-top:10px;">役職決定！</h2>
+        <p style="color:#e2e8f0;margin-bottom:12px;">${esc(user.name)} さんの役職は…</p>
+        <div style="font-size:32px;font-weight:bold;color:#fbbf24;background:rgba(251,191,36,.12);border:2px solid #fbbf24;border-radius:16px;padding:16px;margin-bottom:12px;">💼 ${esc(jobAssigned)}</div>
+        <p style="color:#94a3b8;font-size:13px;">給料マスでは ${fmt(j?j.salary:0)} が受け取れます</p>
+        <div style="display:flex;gap:8px;margin-top:20px;">
+          <button class="btn btn-primary" onclick="showRanking()">🏆 ランキング</button>
+          <button class="btn btn-secondary" onclick="showHome()">🏠 ホーム</button>
+        </div>
+      </div>
+    `); return;
+  }
+
+  if(sq.type==="roulette"){
+    render(`
+      <div style="animation:pop .4s ease both;text-align:center;">
+        <div style="font-size:64px;">🎰</div>
+        <h2 style="text-align:center;color:#c084fc;margin-top:10px;">ルーレット！</h2>
+        <div style="font-size:36px;font-weight:bold;color:${rouletteResult?"#4ade80":"#f87171"};margin:12px 0;">${rouletteResult?"+":"-"}${fmt(sq.amount)}</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:6px 0;">
+          <span style="color:#94a3b8;">${fmt(before)}</span>
+          <span style="color:#64748b;">→</span>
+          <span style="color:#fbbf24;font-weight:bold;font-size:20px;">${fmt(newMoney)}</span>
+        </div>
+        <p style="color:#a78bfa;margin-top:6px;">${esc(user.name)} さん</p>
+        <div style="display:flex;gap:8px;margin-top:20px;">
+          <button class="btn btn-primary" onclick="showRanking()">🏆 ランキング</button>
+          <button class="btn btn-secondary" onclick="showHome()">🏠 ホーム</button>
+        </div>
+      </div>
+    `); return;
+  }
+
+  const gain=delta>=0;
+  render(`
+    <div style="animation:pop .4s ease both;text-align:center;">
+      <div style="font-size:64px;">${gain?"🤑":"😭"}</div>
+      <h2 style="text-align:center;color:${gain?"#4ade80":"#f87171"};margin-top:10px;">${esc(sq.label)}</h2>
+      ${sq.type==="salary"?`<p style="color:#60a5fa;font-size:13px;margin-bottom:6px;">役職：${esc(user.job||"なし")}</p>`:""}
+      <div style="font-size:32px;font-weight:bold;color:${gain?"#4ade80":"#f87171"};margin:10px 0;">${gain?"+":""}${fmt(delta)}</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:6px 0;">
+        <span style="color:#94a3b8;">${fmt(before)}</span>
+        <span style="color:#64748b;">→</span>
+        <span style="color:#fbbf24;font-weight:bold;font-size:20px;">${fmt(newMoney)}</span>
+      </div>
+      <p style="color:#a78bfa;margin-top:6px;">${esc(user.name)} さん</p>
+      <div style="display:flex;gap:8px;margin-top:20px;">
+        <button class="btn btn-primary" onclick="showRanking()">🏆 ランキング</button>
+        <button class="btn btn-secondary" onclick="showHome()">🏠 ホーム</button>
+      </div>
+    </div>
+  `);
+}
+
+// ══════════════════════════════════════
+// RANKING
+// ══════════════════════════════════════
+function showRanking(){
+  stopRanking();
+  renderRanking();
+  rankingListener=db.ref("users").on("value",snap=>{
+    users=snap.val()||{};
+    if(document.getElementById("ranking-list")) renderRanking();
+  });
+}
+
+function renderRanking(){
+  const COLORS=["#FFD700","#C0C0C0","#CD7F32"];
+  const MEDALS=["🥇","🥈","🥉"];
+  const sorted=Object.values(users).sort((a,b)=>(b.totalEarned||0)-(a.totalEarned||0));
+  const items=sorted.map((u,i)=>`
+    <div class="rank-item" style="${i<3?`background:rgba(${i===0?"255,215,0":i===1?"192,192,192":"205,127,50"},.07);border-color:${COLORS[i]}55;`:""}">
+      <div class="rank-badge" style="${i<3?`background:${COLORS[i]};color:#000;font-size:18px;`:""}">
+        ${i<3?MEDALS[i]:i+1}
+      </div>
+      <div style="flex:1;">
+        <div style="color:white;font-weight:bold;font-size:15px;">${esc(u.name)}${u.job?`<span class="badge">💼 ${esc(u.job)}</span>`:""}</div>
+        <div style="font-size:12px;color:#64748b;margin-top:2px;">所持金 ${fmt(u.money)}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-weight:bold;font-size:18px;color:#fbbf24;">${fmt(u.totalEarned||0)}</div>
+        <div style="font-size:11px;color:#64748b;">累計獲得</div>
+      </div>
+    </div>
+  `).join("");
+  render(`
+    <div style="animation:fadeUp .4s ease both;">
+      <button class="back-btn" onclick="showHome()">← 戻る</button>
+      <h2 style="text-align:center;">🏆 ランキング</h2>
+      <div id="ranking-list">
+        ${sorted.length?items:"<p style='color:#64748b;text-align:center;margin-top:30px;'>まだプレイヤーがいません</p>"}
+      </div>
+      <p class="hint" style="margin-top:14px;">※ リアルタイム自動更新</p>
+    </div>
+  `);
+}
+
+// ══════════════════════════════════════
+// ADMIN
+// ══════════════════════════════════════
+function showAdmin(tab){
+  stopRanking();
+  adminTab=tab||"squares";
+  const tabs=[["squares","📋 マス"],["jobs","💼 役職"],["qr","📷 QR"],["reset","🗑 リセット"]];
+  const tabBar=tabs.map(([k,l])=>`<button class="tab-btn ${adminTab===k?"active":""}" onclick="showAdmin('${k}')">${l}</button>`).join("");
+  let content="";
+
+  if(adminTab==="squares"){
+    const typeColor={plus:"#4ade80",minus:"#f87171",job:"#fbbf24",salary:"#60a5fa",roulette:"#c084fc",goal:"#fbbf24"};
+    const list=Object.values(squares).map(s=>`
+      <div class="list-item">
+        <span style="flex:1;color:white;font-weight:bold;font-size:14px;">${esc(s.label)}</span>
+        <span style="font-size:12px;color:${typeColor[s.type]||"white"};margin-right:6px;">
+          ${s.type==="plus"?"+"+fmt(s.amount):s.type==="minus"?"-"+fmt(s.amount):s.type==="roulette"?"±"+fmt(s.amount):{job:"役職マス",salary:"給料マス",goal:"🏁ゴール"}[s.type]||""}
+        </span>
+        <button class="icon-btn" onclick="editSquare('${s.id}')">✏️</button>
+        <button class="icon-btn" onclick="deleteSquare('${s.id}')">🗑</button>
+      </div>
+    `).join("")||"<p style='color:#64748b;text-align:center;margin-bottom:10px;'>まだマスがありません</p>";
+    content=`
+      ${list}
+      <div class="add-box">
+        <p class="add-box-title">＋ マスを追加</p>
+        <input id="new-sq-label" placeholder="マス名（例: 宝くじ当選）">
+        <select id="new-sq-type" onchange="toggleAmountField()">
+          <option value="plus">➕ プラスマス</option>
+          <option value="minus">➖ マイナスマス</option>
+          <option value="roulette">🎰 ルーレット</option>
+          <option value="job">💼 役職マス</option>
+          <option value="salary">💰 給料マス</option>
+          <option value="goal">🏁 ゴール</option>
+        </select>
+        <input id="new-sq-amount" type="number" placeholder="金額（円）">
+        <button class="btn btn-primary" onclick="addSquare()">追加する</button>
+      </div>`;
+  }
+
+  if(adminTab==="jobs"){
+    const list=Object.values(jobs).map(j=>`
+      <div class="list-item">
+        <span style="flex:1;color:white;font-weight:bold;font-size:14px;">💼 ${esc(j.name)}</span>
+        <span style="font-size:13px;color:#60a5fa;margin-right:6px;">給料 +${fmt(j.salary)}</span>
+        <button class="icon-btn" onclick="editJob('${j.id}')">✏️</button>
+        <button class="icon-btn" onclick="deleteJob('${j.id}')">🗑</button>
+      </div>
+    `).join("")||"<p style='color:#64748b;text-align:center;margin-bottom:10px;'>まだ役職がありません</p>";
+    content=`
+      ${list}
+      <div class="add-box">
+        <p class="add-box-title">＋ 役職を追加</p>
+        <input id="new-job-name" placeholder="役職名（例: 社長）">
+        <input id="new-job-salary" type="number" placeholder="給料（円）">
+        <button class="btn btn-primary" onclick="addJob()">追加する</button>
+      </div>`;
+  }
+
+  if(adminTab==="qr"){
+    const regUrl=baseUrl()+"?page=register";
+    const regQr=`
+      <div class="qr-item" style="border-color:#7c3aed55;background:rgba(124,58,237,.08);">
+        <img src="${qrUrl(regUrl,90)}" style="border-radius:8px;flex-shrink:0;">
+        <div style="flex:1;">
+          <div style="color:#a78bfa;font-weight:bold;margin-bottom:3px;">📋 プレイヤー登録</div>
+          <div style="font-size:10px;color:#475569;word-break:break-all;">${regUrl}</div>
+        </div>
+      </div>`;
+    const typeColor={plus:"#4ade80",minus:"#f87171",job:"#fbbf24",salary:"#60a5fa",roulette:"#c084fc",goal:"#fbbf24"};
+    const items=Object.values(squares).map(s=>{
+      const url=baseUrl()+"?page=square&id="+s.id;
+      const amtLabel={plus:"+"+fmt(s.amount),minus:"-"+fmt(s.amount),roulette:"±"+fmt(s.amount),job:"役職マス",salary:"給料マス",goal:"🏁ゴール"};
+      return `
+        <div class="qr-item">
+          <img src="${qrUrl(url,90)}" style="border-radius:8px;flex-shrink:0;">
+          <div style="flex:1;">
+            <div style="color:white;font-weight:bold;margin-bottom:3px;">${esc(s.label)}</div>
+            <div style="font-size:12px;color:${typeColor[s.type]||"white"};margin-bottom:3px;">${amtLabel[s.type]||""}</div>
+            <div style="font-size:10px;color:#475569;word-break:break-all;">${url}</div>
+          </div>
+        </div>`;
+    }).join("")||"<p style='color:#64748b;text-align:center;'>マスを追加するとQRが表示されます</p>";
+    content=`
+      <p style="color:#94a3b8;font-size:13px;margin-bottom:14px;">印刷して各マスに設置してください。</p>
+      ${regQr}${items}`;
+  }
+
+  if(adminTab==="reset"){
+    content=`
+      <div style="text-align:center;">
+        <p style="color:#94a3b8;margin-bottom:16px;">現在のプレイヤー数：<strong style="color:white;">${Object.keys(users).length}人</strong></p>
+        <button class="btn btn-yellow" onclick="resetMoney()">💰 所持金をリセット（累計は保持）</button>
+        <button class="btn btn-danger" onclick="confirmFullReset()">🗑 全プレイヤーを完全に削除</button>
+      </div>`;
+  }
+
+  render(`
+    <div style="animation:fadeUp .4s ease both;">
+      <button class="back-btn" onclick="showHome()">← 戻る</button>
+      <h2 style="text-align:center;">⚙️ 管理画面</h2>
+      <div class="tab-bar">${tabBar}</div>
+      ${content}
+    </div>
+  `);
+}
+
+function toggleAmountField(){
+  const t=document.getElementById("new-sq-type")?.value;
+  const f=document.getElementById("new-sq-amount");
+  if(f) f.style.display=(t==="job"||t==="salary"||t==="goal")?"none":"block";
+}
+
+async function addSquare(){
+  const label=document.getElementById("new-sq-label")?.value.trim();
+  const type=document.getElementById("new-sq-type")?.value;
+  const amount=parseInt(document.getElementById("new-sq-amount")?.value)||0;
+  if(!label){alert("マス名を入力してください");return;}
+  if((type==="plus"||type==="minus"||type==="roulette")&&amount<=0){alert("金額を入力してください");return;}
+  const id="sq_"+Date.now();
+  await db.ref("squares/"+id).set({id,label,type,amount});
+  squares[id]={id,label,type,amount};
+  showAdmin("squares");
+}
+
+async function deleteSquare(id){
+  if(!confirm("このマスを削除しますか？")) return;
+  await db.ref("squares/"+id).remove();
+  delete squares[id]; showAdmin("squares");
+}
+
+function editSquare(id){
+  const sq=squares[id]; if(!sq) return;
+  const newLabel=prompt("マス名:",sq.label); if(newLabel===null) return;
+  let newAmount=sq.amount;
+  if(sq.type==="plus"||sq.type==="minus"||sq.type==="roulette") newAmount=parseInt(prompt("金額（円）:",sq.amount))||0;
+  db.ref("squares/"+id).update({label:newLabel.trim(),amount:newAmount});
+  squares[id]={...sq,label:newLabel.trim(),amount:newAmount};
+  showAdmin("squares");
+}
+
+async function addJob(){
+  const name=document.getElementById("new-job-name")?.value.trim();
+  const salary=parseInt(document.getElementById("new-job-salary")?.value)||0;
+  if(!name){alert("役職名を入力してください");return;}
+  if(salary<=0){alert("給料を入力してください");return;}
+  const id="j_"+Date.now();
+  await db.ref("jobs/"+id).set({id,name,salary});
+  jobs[id]={id,name,salary}; showAdmin("jobs");
+}
+
+async function deleteJob(id){
+  if(!confirm("この役職を削除しますか？")) return;
+  await db.ref("jobs/"+id).remove();
+  delete jobs[id]; showAdmin("jobs");
+}
+
+function editJob(id){
+  const j=jobs[id]; if(!j) return;
+  const newName=prompt("役職名:",j.name); if(newName===null) return;
+  const newSalary=parseInt(prompt("給料（円）:",j.salary))||0;
+  db.ref("jobs/"+id).update({name:newName.trim(),salary:newSalary});
+  jobs[id]={...j,name:newName.trim(),salary:newSalary}; showAdmin("jobs");
+}
+
+async function resetMoney(){
+  if(!confirm("全員の所持金を"+fmt(INIT_MONEY)+"にリセットします。累計獲得額は保持されます。")) return;
+  const updates={};
+  Object.keys(users).forEach(uid=>updates["users/"+uid+"/money"]=INIT_MONEY);
+  await db.ref().update(updates);
+  Object.keys(users).forEach(uid=>users[uid].money=INIT_MONEY);
+  alert("リセットしました！"); showAdmin("reset");
+}
+
+async function confirmFullReset(){
+  if(!confirm("全プレイヤーを完全に削除します。元に戻せません。本当によろしいですか？")) return;
+  await db.ref("users").remove();
+  users={}; alert("削除しました。"); showAdmin("reset");
+}
+
+// ══════════════════════════════════════
+// INIT
+// ══════════════════════════════════════
+(async()=>{
+  try{
+    await loadAll();
+    document.getElementById("loading").style.display="none";
+    document.getElementById("app").style.display="block";
+    const page=getParam("page");
+    const id=getParam("id");
+    if(page==="register")        showRegister();
+    else if(page==="square"&&id) showSquare(id);
+    else                         showHome();
+  }catch(e){
+    document.getElementById("loading").innerHTML=`<p style="color:#f87171;padding:20px;text-align:center;">エラー: ${e.message}</p>`;
+  }
+})();
+</script>
+</body>
+</html>
